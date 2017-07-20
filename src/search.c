@@ -8,18 +8,36 @@
     @author David Whitters
     @date 7/18/17
 */
+
+/** Allows strcasestr to be used as it is a nonstandard extension. */
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 
+/** The length of each line that is read. */
+#define LINE_LENGTH 80
+/** How far from the end of the input arguments the pattern is. */
 #define PATTERN_OFFSET 2
+/** How far from the end of the input arguments the file name is. */
 #define FILE_OFFSET 1
+/** How long each flag string is expected to be. */
+#define FLAG_LENGTH 2
 
-void getFlags(char * tags, char ** args, int num_args);
+/** Function prototypes. */
+void parseFlags(char ** args, int num_args);
 static int dupTag(char * tags, char tag);
+void analyzeLine(char * line, char * pattern);
+void setFlag(char flag);
+
+/** Flags */
+/** Set to one when case should be ignored. */
+int Ignore_Case = 0;
 
 void main(int argc, char** argv)
 {
-    char tags[10] = {0};
+    // Stores a line from a file.
+    char line[LINE_LENGTH] = {0};
 
     // File path is stored in last element in commandline arguments.
     char * pattern = argv[argc - PATTERN_OFFSET];
@@ -27,27 +45,83 @@ void main(int argc, char** argv)
 
     // Check if a file was named.
     int flag_offset = (pattern[0] == '-') ? 1 : 2;
-    getFlags(tags, argv, argc - flag_offset);
+
+    // Parse the commandline flags.
+    parseFlags(argv, argc - flag_offset);
+
+    FILE *f;
+    f = fopen(file_path, "r");  // Open the file for reading.
+
+    /*
+        Continue looping until EOF has been hit.
+        Get a line from a file with a maximum length of 100 chars.
+    */
+    while(fgets(line, LINE_LENGTH, f))
+    {
+        analyzeLine(line, pattern);
+    }
+
+    puts("Done!");
 }
 
 /**
-    Parses the commandline flags and stores them in a passed in
-    character array.
+    Determines whether the pattern is present within the line that
+    is passed in.
 
-    @param tags The array that the flags will be held in.
+    @param line A line read from a file.
+*/
+void analyzeLine(char * line, char * pattern)
+{
+    if(0 == Ignore_Case)
+    {
+        // Case sensitive.
+        if(strstr(line, pattern) != NULL)
+        {
+            printf("%s\n", line);
+        }
+    }
+    else
+    {
+        if(strcasestr(line, pattern) != NULL)
+        {
+            printf("%s\n", line);
+        }
+    }
+}
+
+/**
+    Parses the commandline flags and calls a function to set the
+    corresponding global flags.
+
     @param args The commandline arguments.
     @param num_args The number of commandline arguments.
 */
-void getFlags(char * tags, char ** args, int num_args)
+void parseFlags(char ** args, int num_args)
 {
-    int num_tags = 0;
     for(int i = 0; i < num_args; ++i)
     {
-        if((args[i][0] == '-') && (strlen(args[i]) == 2))
+        if((args[i][0] == '-') && (strlen(args[i]) == FLAG_LENGTH))
         {
             // Duplicate tags are not a concern.
-            tags[num_tags] = args[i][1];
-            ++num_tags;
+            setFlag(args[i][1]);
         }
+    }
+}
+
+/**
+    Sets the global flags that correspond with the flags that were
+    read from stdin.
+
+    @param flag A commandline flag.
+*/
+void setFlag(char flag)
+{
+    switch(flag)
+    {
+        case 'i':
+            Ignore_Case = 1;
+            break;
+        default:
+            break;
     }
 }
