@@ -135,7 +135,7 @@ void main(int argc, char** argv)
 
         // Remove newline from the line.
         line[strcspn(line, "\n")] = 0;
-        if((MATCH == analyzeLine(line, pattern, sizeof(pattern))))
+        if((MATCH == analyzeLine(line, pattern, strlen(pattern))))
         {
             ++num_match;
 
@@ -208,7 +208,6 @@ void main(int argc, char** argv)
     }
 }
 
-void getNextFile(char * next_file,
 /**
     Determines whether the pattern is present within the line that
     is passed in.
@@ -250,9 +249,16 @@ int analyzeLine(char * line, char * pattern, int pattern_size)
     {
         if(Whole_Line == NOT_SET)
         {
-            if(strcasestr(line, pattern) != NULL)
+            if(Whole_Word == NOT_SET)
             {
-                ret_val = 1;
+                if(strcasestr(line, pattern) != NULL)
+                {
+                    ret_val = 1;
+                }
+            }
+            else
+            {
+                ret_val = findPattern(line, pattern, pattern_size);
             }
         }
         else
@@ -279,8 +285,18 @@ int analyzeLine(char * line, char * pattern, int pattern_size)
 */
 int findPattern(char * line, char * pattern, int pattern_size)
 {
+    char * pointer;
+
     // Search for the word in the line regardless of surroundings.
-    char * pointer = strstr(line, pattern);
+    if(Ignore_Case == NOT_SET)
+    {
+        pointer = strstr(line, pattern);
+    }
+    else
+    {
+        pointer = strcasestr(line, pattern);
+    }
+
     static int first_run = 1;
 
     if(pointer == NULL)
@@ -291,7 +307,9 @@ int findPattern(char * line, char * pattern, int pattern_size)
     int ret_val = 0;
 
     // Only allow the lack of a preceding space on the first run.
-    if(((pointer == line) && (first_run == 1)) ||
+    if(((pointer == line) && (first_run == 1) &&
+                ((*(pointer + pattern_size) == ' ') ||
+                ((*(pointer + pattern_size) == 0)))) ||
       ((*(pointer - 1) == ' ') &&
        (*(pointer + pattern_size) == ' ') || (*(pointer + pattern_size) == 0)))
     {
