@@ -59,7 +59,7 @@
 /** Function prototypes. */
 void parseInput(char ** args, int num_args);
 static int dupTag(char * tags, char tag);
-int analyzeLine(char * line, char * pattern, int pattern_size);
+int analyzeLine(char * line, char * pattern, int pattern_size, char * pattern2);
 void setFlag(char flag);
 void printLine(char * line, int line_num);
 int findPattern(char * line, char * pattern, int pattern_size);
@@ -82,12 +82,15 @@ int Rev_Search = 0;
 int Whole_Word = 0;
 /** Set to one when only whole line pattern matches should be printed. (-x) */
 int Whole_Line = 0;
+/** Set to one when a wildcard is detected. */
+int Wild_Card = 0;
 
 void main(int argc, char** argv)
 {
     // Stores a line from a file.
     char line[LINE_LENGTH] = {0};
     char * files[MAX_NUM_FILES] = {0};
+    char * pattern2;
 
     int line_count = 0;
     int file_count = 0;
@@ -102,6 +105,13 @@ void main(int argc, char** argv)
 
     // File path is stored in last element in commandline arguments.
     char * pattern = argv[PATTERN_INDEX];
+    if(strcspn(pattern, "*") != strlen(pattern))
+    {
+        // Split the pattern on the wildcard.
+        pattern = strtok(pattern, "*");
+        pattern2 = strtok(NULL, "*");
+        Wild_Card = SET;
+    }
 
     FILE *f;
     f = fopen(argv[FILE_INDEX], "r");  // Open the file for reading.
@@ -135,7 +145,7 @@ void main(int argc, char** argv)
 
         // Remove newline from the line.
         line[strcspn(line, "\n")] = 0;
-        if((MATCH == analyzeLine(line, pattern, strlen(pattern))))
+        if((MATCH == analyzeLine(line, pattern, strlen(pattern), pattern2)))
         {
             ++num_match;
 
@@ -203,7 +213,15 @@ void main(int argc, char** argv)
     {
         for(int i = 0; i < match_file_count; ++i)
         {
-            printf("File: %s\n", files[i]);
+            // Check for NULL pointers.
+            if(files[i] != NULL)
+            {
+                printf("File: %s\n", files[i]);
+            }
+            else
+            {
+                puts("ERROR!");
+            }
         }
     }
 }
@@ -213,11 +231,21 @@ void main(int argc, char** argv)
     is passed in.
 
     @param line A line read from a file.
+    @param pattern The pattern to find in the line.
+    @param pattern_size The size of the pattern.
+    @param pattern2 The next pattern to find in the line.
 
     @return int Set to 1 when a match is found, otherwise 0.
 */
-int analyzeLine(char * line, char * pattern, int pattern_size)
+int analyzeLine(char * line, char * pattern, int pattern_size, char * pattern2)
 {
+    // Check for NULL pointers.
+    if(line == NULL || pattern == NULL || pattern_size < 1)
+    {
+        puts("ERROR!");
+        return 0;
+    }
+
     int ret_val = 0;
     if(NOT_SET == Ignore_Case)
     {
@@ -225,10 +253,35 @@ int analyzeLine(char * line, char * pattern, int pattern_size)
         {
             if(Whole_Word == NOT_SET)
             {
+                char * pattern_found;
+                char * pattern2_found;
                 // Case sensitive.
-                if(strstr(line, pattern) != NULL)
+                if((pattern_found = strstr(line, pattern)) != NULL)
                 {
-                    ret_val = 1;
+                    if(Wild_Card == NOT_SET)
+                    {
+                        ret_val = 1;
+                    }
+                    else
+                    {
+                        if((pattern2_found = strstr(pattern_found, pattern2)) != NULL)
+                        {
+                            int i = 0;
+                            int space_found = 0; // Flag
+                            for(i = 1; i < (pattern2_found - pattern_found); ++i)
+                            {
+                                if(pattern_found[i] == ' ')
+                                {
+                                    space_found = 1;
+                                    break;
+                                }
+                            }
+                            if(0 == space_found)
+                            {
+                                ret_val = 1;
+                            }
+                        }
+                    }
                 }
             }
             else
@@ -299,7 +352,7 @@ int findPattern(char * line, char * pattern, int pattern_size)
 
     static int first_run = 1;
 
-    if(pointer == NULL)
+    if(!pointer)
     {
         return 0;
     }
@@ -339,11 +392,27 @@ void printLine(char * line, int line_num)
     {
         if(NOT_SET == Line_Num)
         {
-            printf("%s\n", line);
+            // Check for NULL pointer.
+            if(line != NULL)
+            {
+                printf("%s\n", line);
+            }
+            else
+            {
+                puts("ERROR!");
+            }
         }
         else
         {
-            printf("%d:%s\n", line_num, line);
+            // Check for NULL pointer.
+            if(line != NULL)
+            {
+                printf("%d:%s\n", line_num, line);
+            }
+            else
+            {
+                puts("ERROR!");
+            }
         }
     }
 }
@@ -410,6 +479,7 @@ void setFlag(char flag)
             Whole_Line = SET;
             break;
         default:
+            printf("Flag \'%c\' not supported!\n", flag);
             break;
     }
 }
